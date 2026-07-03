@@ -76,9 +76,48 @@ skills/                            # Claude Code skills for this project (NOT de
 ## Skills
 The `skills/` folder holds Claude Code skills for working on this project, grouped into
 two categories under the common `skills/` folder:
-- **`genie-creation-skills/create-genie-space`** — create a Databricks AI/BI Genie space
-  via API and wire it to a tab's per-domain "Ask Genie" button.
-- **`lakeflow-connect-skills/`** — placeholder for Lakeflow Connect ingestion skills.
 
-To use them with Claude Code, symlink or copy the category contents into `~/.claude/skills`
-(personal skills are discovered one level under that folder), or package them as a plugin.
+```
+skills/
+  genie-creation-skills/
+    create-genie-space/      SKILL.md   # create a Genie space via API + wire it into the app
+    health-cloud-benefits/   SKILL.md   # Health Cloud Benefits Verification schema/joins/SQL for Genie
+  lakeflow-connect-skills/              # (Lakeflow Connect ingestion skills)
+```
+
+### Which category does a skill belong in?
+
+- **`genie-creation-skills/`** — anything about **building or grounding Databricks AI/BI
+  Genie spaces**: creating/configuring a space, wiring it into a tab's "Ask Genie" button,
+  and the *domain knowledge that makes Genie answer well* — data-model schema definitions,
+  table relationships/join logic, column semantics, sample questions, and instructions for
+  a specific source (e.g. `health-cloud-benefits`).
+- **`lakeflow-connect-skills/`** — anything about **getting source data into Unity Catalog
+  via Lakeflow Connect**: setting up/managing ingestion connectors (Salesforce, Veeva,
+  Workday, ServiceNow, SQL Server, …), pipeline creation/monitoring/troubleshooting, and
+  source→UC schema mapping.
+
+> **Rule of thumb:** if the skill is about *querying / answering questions over* a data
+> model (Genie, schema, joins, SQL) → `genie-creation-skills`. If it's about *ingesting /
+> landing* the data (connectors, pipelines) → `lakeflow-connect-skills`.
+
+### How to add a new skill
+1. Create a folder under the right category: `skills/<category>/<skill-name>/`
+   (use a short, kebab-case skill name).
+2. Add a **`SKILL.md`** with YAML frontmatter — `name` and `description`. The
+   **`description` is what tells Claude when to invoke the skill**, so make it specific
+   (name the tables/tasks/triggers it covers). Put the how-to in the body; add any
+   supporting files (SQL, scripts, sample data) in the same folder.
+   ```markdown
+   ---
+   name: my-skill
+   description: One specific line — what it does and when to use it (name the triggers).
+   ---
+   # My skill
+   …instructions…
+   ```
+3. Commit + push.
+4. To make it usable in Claude Code, copy or symlink the **skill folder** into
+   `~/.claude/skills/<skill-name>/` — personal skills are discovered one level under that
+   folder, so the category nesting here is for organization; drop the leaf skill folder in
+   directly (or package the whole `skills/` tree as a plugin, which does support grouping).
