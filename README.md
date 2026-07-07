@@ -18,6 +18,7 @@ underlying Unity Catalog tables and per-domain **"Ask Genie"** buttons.
 | Clinical · CTMS | Veeva Clinical (`clinical-ctms-veeva`) | `CTMSVEEVA` |
 | Health Cloud · Benefits Verification | Salesforce Health Cloud (mock) | `PATIENTSERVICES` |
 | Finance · Gross-to-Net | Oracle NetSuite (mock) | `NETSUITE_GTN` |
+| Quality · HEDIS Measures | HEDIS files (Auto Loader) + Salesforce Data Cloud dims | `HEDIS` |
 
 Per-source branding is applied automatically (Veeva orange, Salesforce blue, NetSuite red).
 
@@ -68,6 +69,7 @@ app.py app.yaml requirements.txt   # Databricks App runtime (deployed)
 static/index.html static/data.js   # UI + generated data (deployed)
 generate_*.py  netsuite_gtn.js     # build-time model generators (NOT deployed) — see BUILD.md
 deploy.sh                          # deploy to fe-hls
+demos/hedis-quality/               # runnable Lakeflow ingestion demo (NOT deployed) — see its README
 skills/                            # Claude Code skills for this project (NOT deployed)
   genie-creation-skills/           #   create-genie-space: create a Genie space + wire it into the app
   lakeflow-connect-skills/         #   (placeholder for Lakeflow Connect ingestion skills)
@@ -82,7 +84,8 @@ skills/
   genie-creation-skills/
     create-genie-space/      SKILL.md   # create a Genie space via API + wire it into the app
     health-cloud-benefits/   SKILL.md   # Health Cloud Benefits Verification schema/joins/SQL for Genie
-  lakeflow-connect-skills/              # (Lakeflow Connect ingestion skills)
+  lakeflow-connect-skills/              # Lakeflow Connect ingestion skills
+    hedis-file-ingestion/    SKILL.md   # HEDIS files (Auto Loader) + Salesforce Data Cloud dims
 ```
 
 ### Which category does a skill belong in?

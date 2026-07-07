@@ -233,7 +233,12 @@ function makeEntitiesClickable(container, model) {
 
 // color entity boxes by object kind (Health Cloud vs Salesforce standard) when tagged
 function colorEntitiesByKind(container, model) {
-  const STYLE = { hc: { fill: "#f4e9fb", stroke: "#9b4fc8" }, std: { fill: "#edf0f4", stroke: "#33425a" } };
+  const STYLE = {
+    hc: { fill: "#f4e9fb", stroke: "#9b4fc8" }, std: { fill: "#edf0f4", stroke: "#33425a" },
+    // HEDIS tab provenance: file=HEDIS files, datacloud=Salesforce Data Cloud, measure=computed, ref=reference
+    file: { fill: "#e7f5ec", stroke: "#2f8f57" }, datacloud: { fill: "#e6f6fd", stroke: "#00A1E0" },
+    measure: { fill: "#f4e9fb", stroke: "#9b4fc8" }, ref: { fill: "#edf0f4", stroke: "#33425a" },
+  };
   container.querySelectorAll('g[id^="entity-"]').forEach((g) => {
     const label = g.querySelector("text");
     if (!label) return;
@@ -265,9 +270,12 @@ const SF_LOGO = '<svg class="tablogo" viewBox="0 0 24 24" width="20" height="14"
 const VEEVA_LOGO = '<span class="vlogo" aria-hidden="true">veeva</span>';
 const NS_ACCENT = "#C74634", NS_ACCENT_BG = "#FBEAE7";  // Oracle Redwood red
 const NS_LOGO = '<span class="tablogo" style="color:#C74634;font-weight:800;font-size:12.5px;letter-spacing:-0.03em;" aria-hidden="true">NetSuite</span>';
+const HEDIS_ACCENT = "#0E9C8A", HEDIS_ACCENT_BG = "#E4F6F3";  // HLS teal (mixed-source model)
+const HEDIS_LOGO = '<span class="tablogo" style="color:#0E9C8A;font-weight:800;font-size:12.5px;letter-spacing:-0.02em;" aria-hidden="true">HEDIS</span>';
 function brandOf(m) {
   if (m.source === "salesforce") return { accent: SF_ACCENT, bg: SF_ACCENT_BG, logo: SF_LOGO };
   if (m.source === "netsuite")   return { accent: NS_ACCENT, bg: NS_ACCENT_BG, logo: NS_LOGO };
+  if (m.source === "hedis")      return { accent: HEDIS_ACCENT, bg: HEDIS_ACCENT_BG, logo: HEDIS_LOGO };
   return { accent: VEEVA_ACCENT, bg: VEEVA_ACCENT_BG, logo: VEEVA_LOGO };
 }
 
@@ -337,6 +345,19 @@ const MODELS = [
     ucBase: "https://docs.oracle.com/en/cloud/saas/netsuite/ns-online-help/#",
     schemaLabel: "oracle_netsuite.gross_to_net (mock)",
     example: "gtn_accrual, chargeback, net_sales_summary"
+  },
+  {
+    tabId: "tab-hedis",
+    tabLabel: "Quality · HEDIS Measures",
+    data: HEDIS,
+    source: "hedis",
+    mock: true,
+    ucBase: "https://www.ncqa.org/hedis/measures/#",
+    schemaLabel: "tony_farias.hedis_quality_demo  ·  dims via Salesforce Data Cloud",
+    example: "fact_claims, dim_member, mv_quality_performance",
+    // Ingestion demo lives in demos/hedis-quality/ (Auto Loader files + Data Cloud dims).
+    // Optional: wire a Genie space per domain here once created.
+    genieByDomain: {}
   }
 ];
 
@@ -551,6 +572,47 @@ jumpEl.addEventListener("change", () => {
   if (sec) { setSectionOpen(sec, true); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
   jumpEl.value = "";
 });
+
+// Auto-setup for screenshot capture: check for ?tab=<tabId> or ?setup=<tabId>
+// This code runs at the END after all page initialization
+setTimeout(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const setupTab = params.get('tab') || params.get('setup');
+
+  if (!setupTab) return; // No setup needed
+  if (!MODELS || !MODELS.some(m => m.tabId === setupTab)) return; // Invalid tab
+
+  try {
+    // Activate the requested tab
+    activateTab(setupTab);
+    await new Promise(r => setTimeout(r, 1000)); // Wait for tab switch
+
+    // Find and expand first domain section
+    const main = document.querySelector('main.active');
+    if (main) {
+      const section = main.querySelector('section.domain');
+      if (section && !section.classList.contains('open')) {
+        // Call setSectionOpen directly to expand and render diagram
+        setSectionOpen(section, true);
+
+        // Wait for SVG to render (max 12 seconds)
+        for (let i = 0; i < 48; i++) {
+          const wrap = section.querySelector('.diagram-wrap');
+          const svg = wrap?.querySelector('svg');
+          if (svg && svg.querySelectorAll('*').length > 20) {
+            break; // SVG has content
+          }
+          await new Promise(r => setTimeout(r, 250));
+        }
+
+        // Scroll to section
+        section.scrollIntoView({behavior: 'auto', block: 'start'});
+      }
+    }
+  } catch (e) {
+    // Fail silently
+  }
+}, 400); // Run 400ms after page load to ensure everything is initialized
 </script>
 </body>
 </html>
