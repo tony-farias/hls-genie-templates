@@ -1,4 +1,4 @@
-# HLS Data Models
+# Genie Templates for HLS (using Lakeflow Connect)
 
 An interactive **entity-relationship (ERD) explorer** for Health & Life Sciences data
 models, deployed as a **Databricks App**. Each tab is one source system's schema, drawn
