@@ -13,7 +13,7 @@ APP="hls-data-models"
 WS="/Workspace/Users/antonio.farias@databricks.com/apps/${APP}"
 cd "$(dirname "$0")"
 
-RUNTIME_FILES=(app.py app.yaml requirements.txt static/index.html static/data.js)
+RUNTIME_FILES=(app.py app.yaml requirements.txt static/index.html static/data.js static/genieflow-logo.png)
 
 echo "== ensure workspace dirs"
 databricks workspace mkdirs "${WS}/static" --profile "$PROFILE"
