@@ -124,3 +124,11 @@ skills/
    `~/.claude/skills/<skill-name>/` — personal skills are discovered one level under that
    folder, so the category nesting here is for organization; drop the leaf skill folder in
    directly (or package the whole `skills/` tree as a plugin, which does support grouping).
+5. To make it usable in Cursor, symlink the **skill folder** into `.cursor/skills/<skill-name>/`
+   (project-scoped, so it works for anyone who clones the repo). Same one-level rule as above:
+   ```bash
+   ln -sfn ../../skills/<category>/<skill-name> .cursor/skills/<skill-name>
+   ```
+   Cursor auto-invokes a skill by matching the prompt against its `description`, so include the
+   phrasings users will actually type. Adding `disable-model-invocation: true` to the frontmatter
+   opts out of auto-invocation, making the skill load only when named explicitly.

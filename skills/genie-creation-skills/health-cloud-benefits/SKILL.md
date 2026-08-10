@@ -1,11 +1,19 @@
 ---
 name: health-cloud-benefits
-description: Comprehensive schema definitions, table relationships, and SQL join logic for querying the Salesforce Health Cloud Benefits Verification data model. Use this skill whenever a user asks about member plans, insurance coverage limits, or care benefit verification requests.
+description: Comprehensive schema definitions, table relationships, and SQL join logic for querying the Salesforce Health Cloud Benefits Verification data model, and for grounding a Databricks Genie space over it. Use when a user asks to "create health cloud benefits genie template" (or to create, build, or generate a Health Cloud benefits Genie template, space, or room), and whenever a user asks about member plans, purchaser plans, insurance coverage limits, copays, deductibles, out-of-pocket maximums, or care benefit verification requests.
 ---
 
 # Salesforce Health Cloud Benefits Verification Skill
 
 This skill provides the final, production-ready schema structures, accurate column data types, and core relationship mappings required for Databricks Genie to perfectly query patient benefit and insurance verification data ingested via Lakeflow Connect.
+
+## Creating the Genie template
+
+When asked to create the Health Cloud Benefits Genie template, ground the space with the
+content below: pass the six tables as the space's table list, the join hierarchy and filter
+guardrails as its instructions, and the SQL examples as benchmarks. For the space-creation
+API calls and for wiring the space into the app's "Ask Genie" button, use the
+`create-genie-space` skill.
 
 ## Table Schemas & Complete Column Metadata
 
@@ -230,3 +238,4 @@ JOIN coverage_benefit_item cbi ON cbi.coverage_benefit_id = cb.id
 JOIN coverage_benefit_item_limit cbil ON cbil.coverage_benefit_item_id = cbi.id
 WHERE mp.status = 'Active' 
   AND cb.is_active = true;
+```
