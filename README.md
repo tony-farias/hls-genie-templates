@@ -71,7 +71,7 @@ generate_*.py  netsuite_gtn.js     # build-time model generators (NOT deployed) 
 deploy.sh                          # deploy to fe-hls
 demos/hedis-quality/               # runnable Lakeflow ingestion demo (NOT deployed) — see its README
 skills/                            # Claude Code skills for this project (NOT deployed)
-  genie-creation-skills/           #   create-genie-space: create a Genie space + wire it into the app
+  genie-creation-skills/           #   Genie space creation + domain grounding skills
   lakeflow-connect-skills/         #   (placeholder for Lakeflow Connect ingestion skills)
 ```
 
@@ -82,10 +82,11 @@ two categories under the common `skills/` folder:
 ```
 skills/
   genie-creation-skills/
-    create-genie-space/      SKILL.md   # create a Genie space via API + wire it into the app
-    health-cloud-benefits/   SKILL.md   # Health Cloud Benefits Verification schema/joins/SQL for Genie
-  lakeflow-connect-skills/              # Lakeflow Connect ingestion skills
-    hedis-file-ingestion/    SKILL.md   # HEDIS files (Auto Loader) + Salesforce Data Cloud dims
+    create-genie-space/               SKILL.md   # create a Genie space via API + wire it into the app
+    health-cloud-benefits/            SKILL.md   # Health Cloud Benefits Verification schema/joins/SQL for Genie
+    life-sciences-intelligent-sales/  SKILL.md   # Life Sciences Intelligent Sales visits/inventory schema for Genie
+  lakeflow-connect-skills/                       # Lakeflow Connect ingestion skills
+    hedis-file-ingestion/             SKILL.md   # HEDIS files (Auto Loader) + Salesforce Data Cloud dims
 ```
 
 ### Which category does a skill belong in?
