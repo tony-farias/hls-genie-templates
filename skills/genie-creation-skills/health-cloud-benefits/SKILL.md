@@ -1,19 +1,51 @@
 ---
 name: health-cloud-benefits
-description: Comprehensive schema definitions, table relationships, and SQL join logic for querying the Salesforce Health Cloud Benefits Verification data model, and for grounding a Databricks Genie space over it. Use when a user asks to "create health cloud benefits genie template" (or to create, build, or generate a Health Cloud benefits Genie template, space, or room), and whenever a user asks about member plans, purchaser plans, insurance coverage limits, copays, deductibles, out-of-pocket maximums, or care benefit verification requests.
+description: Schema definitions, Unity Catalog column comments, metric view definitions, and example join queries for the Salesforce Health Cloud Benefits Verification data model, and the end-to-end workflow for grounding a Databricks Genie space over it. Use when a user asks to "create health cloud benefits genie template" (or to create, build, or generate a Health Cloud benefits Genie template, space, or room), and whenever a user asks about member plans, purchaser plans, insurance coverage limits, copays, deductibles, out-of-pocket maximums, or care benefit verification requests.
 ---
 
 # Salesforce Health Cloud Benefits Verification Skill
 
-This skill provides the final, production-ready schema structures, accurate column data types, and core relationship mappings required for Databricks Genie to perfectly query patient benefit and insurance verification data ingested via Lakeflow Connect.
+This skill provides the production-ready schema structures, accurate column data types, core
+relationship mappings, and governed metric definitions required for Databricks Genie to query
+patient benefit and insurance verification data ingested via Lakeflow Connect.
 
-## Creating the Genie template
+## Genie template workflow
 
-When asked to create the Health Cloud Benefits Genie template, ground the space with the
-content below: pass the six tables as the space's table list, the join hierarchy and filter
-guardrails as its instructions, and the SQL examples as benchmarks. For the space-creation
-API calls and for wiring the space into the app's "Ask Genie" button, use the
-`create-genie-space` skill.
+When asked to create the Health Cloud Benefits Genie template, work through the steps below
+in order. Each layer carries a different kind of knowledge — keep them separate.
+
+| Layer | Carries | Built from |
+|---|---|---|
+| UC table/column comments | what each table and column means | the schema section below |
+| Metric view metadata | governed dimensions, measures, formulas, synonyms, formats | the metric views below |
+| Example queries | join paths and expected query shapes | the example queries below |
+| Genie instructions | company-wide business context only | supplied by the user, never invented |
+
+1. **Persist metadata to Unity Catalog** — table and column comments (step 1).
+2. **Create the metric views** — the governed KPI layer (step 2).
+3. **Create the Genie space** — metric views first, detail tables only where needed (step 3).
+4. **Add example queries** — where join paths belong, as working SQL (step 4).
+5. **Add instructions only for company-wide context the user supplies** (step 5).
+
+For the space-creation API calls and for wiring the space into the app's "Ask Genie" button,
+use the `create-genie-space` skill.
+
+## Step 1 — Persist metadata to Unity Catalog
+
+The schema section below is the source of truth, but UC comments are what Genie and Catalog
+Explorer actually read. Write them before creating the space, for every table the space
+exposes.
+
+```sql
+COMMENT ON TABLE <catalog>.<schema>.member_plan IS
+  'Insurance coverage for a member or subscriber (Salesforce Health Cloud MemberPlan).';
+
+ALTER TABLE <catalog>.<schema>.member_plan ALTER COLUMN verification_status
+  COMMENT 'Status of the plan''s verification: Active - Verified, Rejected, Not Checked, Unknown, Inactive.';
+```
+
+Escape single quotes inside a comment by doubling them (`''`). Verify with
+`DESCRIBE TABLE EXTENDED <catalog>.<schema>.member_plan`.
 
 ## Table Schemas & Complete Column Metadata
 
@@ -207,23 +239,170 @@ Enforces hard metrics, exclusion conditions, and ceilings directly on a coverage
 - `priority_order` (DOUBLE): Numerical tracking sorting rank determining calculation sequence evaluation layers.
 - `limit_notes` (STRING): Core explanatory string capturing notes or terms linked to this rule item.
 
+### 7. person_account
+The member / patient dimension. Referenced by `member_plan.member_id` and `coverage_benefit.member_id`.
+- `id` (STRING): Unique ID of the person account (Primary Key).
+- `name` (STRING): The member's full name.
+- `first_name` (STRING): Given name.
+- `last_name` (STRING): Family name.
+- `birth_date` (DATE): Date of birth.
+- `gender` (STRING): Administrative gender.
+- `is_deceased` (BOOLEAN): Deceased flag.
+- `billing_state` (STRING): State of the member's primary address.
+- `billing_postal_code` (STRING): Postal code of the member's primary address.
+
 ---
 
-## Step-by-Step Join Guidance
+## Step 2 — Metric views
 
-When executing analytics queries or building user summaries via Genie, perform table joins through the structural hierarchy sequence below:
-`person_account (id)` -> `member_plan (account_id)` -> `coverage_benefit (member_plan_id)` -> `coverage_benefit_item (coverage_benefit_id)` -> `coverage_benefit_item_limit (coverage_benefit_item_id)`.
+Build the governed KPI layer before creating the space. Carry the business meaning in each
+dimension's and measure's `comment` (and `synonyms` on DBR 17.3+) — that metadata is what
+Genie reads, so it does not need to be repeated as instructions.
 
-**Filter Logic Guardrails:**
-- To identify if checking individual rules, confirm active states using: `WHERE member_plan.status = 'Active' AND coverage_benefit.is_active = true AND coverage_benefit_item.is_active = true`
-
----
-
-## SQL Examples
-
-### Example 1: Calculate Remaining Quantities Left for a Member's Plan Services
+### `benefits_coverage_metrics` — plan and coverage rollups
 ```sql
-SELECT 
+CREATE OR REPLACE VIEW <catalog>.<schema>.benefits_coverage_metrics
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  source: <catalog>.<schema>.coverage_benefit
+  comment: "Coverage benefit KPIs by plan, payer plan type, and coverage category."
+  joins:
+    - name: member_plan
+      source: <catalog>.<schema>.member_plan
+      on: source.member_plan_id = member_plan.id
+    - name: purchaser_plan
+      source: <catalog>.<schema>.purchaser_plan
+      on: member_plan.plan_id = purchaser_plan.id
+    - name: person_account
+      source: <catalog>.<schema>.person_account
+      on: source.member_id = person_account.id
+  dimensions:
+    - name: Coverage Type
+      expr: source.coverage_type
+      comment: "Service category covered: Medical, Dental, Vision, Home Health, Pharmacy."
+    - name: Plan Type
+      expr: purchaser_plan.plan_type
+      comment: "Payer plan type: PPO, HMO, Medicare, Medicaid, Workers Comp."
+    - name: Line Of Business
+      expr: purchaser_plan.line_of_business
+      comment: "Insurance policy category the payer plan belongs to."
+    - name: Verification Status
+      expr: member_plan.verification_status
+      comment: "Member plan verification state, e.g. Active - Verified, Rejected, Not Checked."
+    - name: Benefit Period Month
+      expr: DATE_TRUNC('MONTH', source.benefit_period_start_date)
+      comment: "Month in which the coverage benefit period starts."
+    - name: Is Active Coverage
+      expr: source.is_active
+      comment: "Whether the coverage benefit is currently in force."
+  measures:
+    - name: Coverage Benefit Count
+      expr: COUNT(1)
+      comment: "Number of coverage benefit records."
+    - name: Member Count
+      expr: COUNT(DISTINCT source.member_id)
+      comment: "Distinct members with coverage benefits."
+    - name: Avg Primary Care Copay
+      expr: AVG(source.primary_care_copay)
+      comment: "Average member contribution for primary care treatment."
+    - name: Avg Specialist Copay
+      expr: AVG(source.specialist_copay)
+      comment: "Average member contribution for specialist consultations."
+    - name: In Network Deductible Remaining
+      expr: SUM(source.individual_in_network_deductible_remaining)
+      comment: "Total remaining individual in-network deductible balance."
+    - name: In Network Out Of Pocket Remaining
+      expr: SUM(source.individual_in_network_out_of_pocket_remaining)
+      comment: "Total remaining individual in-network out-of-pocket headroom."
+$$
+```
+
+### `benefit_limit_utilization_metrics` — allowed vs applied limits
+```sql
+CREATE OR REPLACE VIEW <catalog>.<schema>.benefit_limit_utilization_metrics
+WITH METRICS
+LANGUAGE YAML
+AS $$
+  version: 1.1
+  source: <catalog>.<schema>.coverage_benefit_item_limit
+  comment: "Utilization of service-level benefit limits: allowed vs applied quantity."
+  joins:
+    - name: coverage_benefit_item
+      source: <catalog>.<schema>.coverage_benefit_item
+      on: source.coverage_benefit_item_id = coverage_benefit_item.id
+    - name: coverage_benefit
+      source: <catalog>.<schema>.coverage_benefit
+      on: coverage_benefit_item.coverage_benefit_id = coverage_benefit.id
+    - name: member_plan
+      source: <catalog>.<schema>.member_plan
+      on: coverage_benefit.member_plan_id = member_plan.id
+  dimensions:
+    - name: Service Covered
+      expr: coverage_benefit_item.name
+      comment: "Covered service or procedure line, e.g. Physical Therapy Session."
+    - name: Benefit Category
+      expr: coverage_benefit_item.benefit_category
+      comment: "Sub-category of the covered service."
+    - name: Coverage Level
+      expr: source.coverage_level
+      comment: "Who the limit applies to: Individual, Family, EmployeeSpouse."
+    - name: Network Type
+      expr: source.network_type
+      comment: "Limit network scope: In (in-network), Out (out-of-network), NA."
+    - name: Term Type
+      expr: source.term_type
+      comment: "Limit renewal interval: Calendar Year, Day, Month, Year to Date."
+    - name: Preauthorization Required
+      expr: coverage_benefit_item.is_preauthorization_required
+      comment: "Whether prior authorization must be granted before care."
+  measures:
+    - name: Allowed Quantity
+      expr: SUM(source.allowed_quantity)
+      comment: "Maximum permitted units, e.g. covered visits."
+    - name: Applied Quantity
+      expr: SUM(source.applied_quantity)
+      comment: "Units already used or claimed."
+    - name: Remaining Quantity
+      expr: SUM(source.allowed_quantity) - SUM(source.applied_quantity)
+      comment: "Units still available under the limit."
+    - name: Utilization Rate
+      expr: SUM(source.applied_quantity) / NULLIF(SUM(source.allowed_quantity), 0)
+      comment: "Applied quantity as a share of allowed quantity."
+$$
+```
+
+---
+
+## Step 3 — Genie space sources
+
+Give the space the **metric views first**. Add underlying tables only for questions the
+metric views cannot answer — row-level lookups such as an individual verification request,
+its response payload, or free-text notes.
+
+- **Default set:** `benefits_coverage_metrics`, `benefit_limit_utilization_metrics`
+- **Add for record-level detail:** `care_benefit_verify_request`, `member_plan`, `person_account`
+- **Do not** add every underlying table alongside the metric views by default. Duplicate query
+  paths over the same facts create ambiguity and let Genie aggregate inconsistently.
+
+---
+
+## Step 4 — Example queries
+
+Join paths belong here, as working SQL, not in instructions. Register these as the space's
+example queries / benchmarks so Genie learns the join hierarchy from queries that run.
+
+The structural hierarchy is:
+`person_account (id)` → `member_plan (member_id)` → `coverage_benefit (member_plan_id)` →
+`coverage_benefit_item (coverage_benefit_id)` → `coverage_benefit_item_limit (coverage_benefit_item_id)`
+
+Active-state filter used across the detail examples:
+`WHERE member_plan.status = 'Active' AND coverage_benefit.is_active = true AND coverage_benefit_item.is_active = true`
+
+### Example 1 — Remaining quantities left for a member's plan services
+```sql
+SELECT
     pa.name AS member_name,
     mp.name AS plan_name,
     cbi.name AS service_covered,
@@ -232,10 +411,74 @@ SELECT
     (cbil.allowed_quantity - cbil.applied_quantity) AS remaining_quantity_allowed,
     cbil.term_type
 FROM member_plan mp
-JOIN person_account pa ON mp.account_id = pa.id
+JOIN person_account pa ON mp.member_id = pa.id
 JOIN coverage_benefit cb ON cb.member_plan_id = mp.id
 JOIN coverage_benefit_item cbi ON cbi.coverage_benefit_id = cb.id
 JOIN coverage_benefit_item_limit cbil ON cbil.coverage_benefit_item_id = cbi.id
-WHERE mp.status = 'Active' 
-  AND cb.is_active = true;
+WHERE mp.status = 'Active'
+  AND cb.is_active = true
+  AND cbi.is_active = true;
 ```
+
+### Example 2 — Limit utilization by service and network (metric view)
+```sql
+SELECT
+    `Service Covered`,
+    `Network Type`,
+    MEASURE(`Allowed Quantity`) AS allowed_quantity,
+    MEASURE(`Applied Quantity`) AS applied_quantity,
+    MEASURE(`Remaining Quantity`) AS remaining_quantity,
+    MEASURE(`Utilization Rate`) AS utilization_rate
+FROM <catalog>.<schema>.benefit_limit_utilization_metrics
+GROUP BY ALL
+ORDER BY ALL;
+```
+
+### Example 3 — Average copays by plan type and coverage type (metric view)
+```sql
+SELECT
+    `Plan Type`,
+    `Coverage Type`,
+    MEASURE(`Member Count`) AS member_count,
+    MEASURE(`Avg Primary Care Copay`) AS avg_primary_care_copay,
+    MEASURE(`Avg Specialist Copay`) AS avg_specialist_copay
+FROM <catalog>.<schema>.benefits_coverage_metrics
+WHERE `Is Active Coverage` = true
+GROUP BY ALL
+ORDER BY ALL;
+```
+
+### Example 4 — Verification requests pending for a member
+```sql
+SELECT
+    pa.name AS member_name,
+    mp.name AS plan_name,
+    cbvr.name AS request_name,
+    cbvr.status,
+    cbvr.status_reason,
+    cbvr.verification_mode,
+    cbvr.request_date
+FROM care_benefit_verify_request cbvr
+JOIN member_plan mp ON cbvr.member_plan_id = mp.id
+JOIN person_account pa ON mp.member_id = pa.id
+WHERE cbvr.status IN ('Pending', 'Ready for Verification', 'Pending Confirmation')
+ORDER BY cbvr.request_date DESC;
+```
+
+---
+
+## Step 5 — Instructions
+
+Instructions are for **company-wide business context only** — the things no amount of schema
+metadata can convey:
+
+- official definitions (what counts as an "active member" or "verified coverage")
+- fiscal or plan-year conventions
+- authoritative source precedence when systems disagree
+- privacy and exclusion rules
+- approved terminology and reporting/rounding policy
+
+Take these from the user. **Do not invent them, and do not put join logic, table routing, or
+metric-view selection into instructions** — those belong in the metric view metadata (step 2),
+the source selection (step 3), and the example queries (step 4). If the user supplies no
+company-wide context, leave the instructions empty.

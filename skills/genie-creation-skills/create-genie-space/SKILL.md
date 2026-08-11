@@ -8,6 +8,26 @@ description: Create a Databricks AI/BI Genie space via the REST API and (optiona
 Covers (1) creating a Genie space over UC tables via API, and (2) making it open on
 click from a Databricks App (the hls-data-models "Ask Genie" pattern).
 
+## 0. Grounding checklist (before creating the space)
+
+Genie answers from metadata and examples, not from prose. Confirm each layer is in place
+before creating the space — a domain skill (e.g. `health-cloud-benefits`) supplies the content.
+
+- [ ] **UC comments written** on every table the space will expose (`COMMENT ON TABLE`,
+      `ALTER TABLE ... ALTER COLUMN ... COMMENT`). Verify with `DESCRIBE TABLE EXTENDED`.
+- [ ] **Metric views created** where the domain skill defines them, with `comment` on each
+      dimension and measure (plus `synonyms` on DBR 17.3+).
+- [ ] **Sources chosen**: metric views first; add underlying tables only for row-level
+      questions the metric views can't answer. Don't expose metric views *and* all their
+      underlying tables by default — duplicate query paths over the same facts create
+      ambiguity and inconsistent aggregation.
+- [ ] **Example queries prepared**: joins are conveyed here, as working SQL, not in
+      instructions.
+- [ ] **Instructions**: company-wide business context only — official definitions, fiscal
+      conventions, source precedence, privacy rules, approved terminology. Take these from the
+      user; never invent them, and keep join logic, table routing, and metric-view selection
+      out. Empty is fine if the user supplies nothing.
+
 ## 1. Auth (dogfood staging quirk)
 Most FE demos live in **dogfood staging**, whose multi-org host the CLI can't pin.
 Call the REST API with curl + the org header:
@@ -29,12 +49,16 @@ curl -s "$HOST/api/2.0/data-rooms" "${auth[@]}" -H "Content-Type: application/js
   "display_name": "My Genie",
   "description": "Natural-language questions over <domain>.",
   "warehouse_id": "<WH_ID>",
-  "table_identifiers": ["cat.schema.table_a", "cat.schema.table_b"],
-  "instructions": "Scope + column semantics for the LLM.",
+  "table_identifiers": ["cat.schema.metrics_view_a", "cat.schema.detail_table_b"],
+  "instructions": "Company-wide business context only (may be empty).",
   "sample_questions": ["Q1?", "Q2?"]
 }'
 # returns space_id (== id). URL: $HOST/genie/rooms/<space_id>
 ```
+
+`table_identifiers` accepts metric views as well as tables — list the metric views first.
+Column meaning comes from UC comments and metric view metadata, so it does not belong in
+`instructions`.
 
 **b) genie/spaces API (newer, richer):** `POST /api/2.0/genie/spaces` needs a
 `serialized_space` JSON **string** (`{version:2, config.sample_questions,
@@ -44,8 +68,9 @@ format first: `GET /api/2.0/genie/spaces/{id}?include_serialized_space=true`.
 Read a space's table list with `GET /api/2.0/data-rooms/{id}`. Delete with
 `DELETE /api/2.0/genie/spaces/{id}`.
 
-Keep instructions tight and table sets focused (a 15–20 table space answers far
-better than a 45-table one).
+Keep source sets focused (a 15–20 source space answers far better than a 45-table one).
+The `benchmarks` block in `serialized_space` is where example question → SQL pairs live —
+use it to teach join paths rather than describing them in `instructions`.
 
 ## 3. Test it end-to-end
 ```bash
