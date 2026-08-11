@@ -83,7 +83,8 @@ two categories under the common `skills/` folder:
 skills/
   genie-creation-skills/
     create-genie-space/               SKILL.md   # create a Genie space via API + wire it into the app
-    health-cloud-benefits/            SKILL.md   # Health Cloud Benefits Verification schema/joins/SQL for Genie
+    health-cloud-benefits/            SKILL.md   # Health Cloud Benefits Verification: Lakeflow ingestion → metric views → Genie
+                                      schema-reference.md  # column-level definitions for the 10 ingested tables
     life-sciences-intelligent-sales/  SKILL.md   # Life Sciences Intelligent Sales visits/inventory schema for Genie
   lakeflow-connect-skills/                       # Lakeflow Connect ingestion skills
     hedis-file-ingestion/             SKILL.md   # HEDIS files (Auto Loader) + Salesforce Data Cloud dims
@@ -104,6 +105,9 @@ skills/
 > **Rule of thumb:** if the skill is about *querying / answering questions over* a data
 > model (Genie, schema, joins, SQL) → `genie-creation-skills`. If it's about *ingesting /
 > landing* the data (connectors, pipelines) → `lakeflow-connect-skills`.
+>
+> An end-to-end skill that ingests *and* grounds belongs in `genie-creation-skills` when the
+> deliverable is a Genie space — the ingestion is a prerequisite step, not the goal.
 
 ### How to add a new skill
 1. Create a folder under the right category: `skills/<category>/<skill-name>/`
