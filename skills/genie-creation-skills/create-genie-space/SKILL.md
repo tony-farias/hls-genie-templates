@@ -16,7 +16,8 @@ before creating the space — a domain skill (e.g. `health-cloud-benefits`) supp
 - [ ] **UC comments written** on every table the space will expose (`COMMENT ON TABLE`,
       `ALTER TABLE ... ALTER COLUMN ... COMMENT`). Verify with `DESCRIBE TABLE EXTENDED`.
 - [ ] **Metric views created** where the domain skill defines them, with `comment` on each
-      dimension and measure (plus `synonyms` on DBR 17.3+).
+      dimension and measure (plus `synonyms` on DBR 17.3+). Multi-hop joins must be **nested**
+      under their parent (snowflake); star joins (direct FK from `source`) may be siblings.
 - [ ] **Sources chosen**: metric views first; add underlying tables only for row-level
       questions the metric views can't answer. Don't expose metric views *and* all their
       underlying tables by default — duplicate query paths over the same facts create
@@ -27,6 +28,8 @@ before creating the space — a domain skill (e.g. `health-cloud-benefits`) supp
       conventions, source precedence, privacy rules, approved terminology. Take these from the
       user; never invent them, and keep join logic, table routing, and metric-view selection
       out. Empty is fine if the user supplies nothing.
+- [ ] **Transient config updates**: if rename/description/agent-config fails with a network
+      error, retry that call only — starter questions and examples may already have saved.
 
 ## 1. Auth (dogfood staging quirk)
 Most FE demos live in **dogfood staging**, whose multi-org host the CLI can't pin.

@@ -172,12 +172,16 @@ DESCRIBE TABLE <catalog>.<schema>.coverage_benefit
 ```
 
 Use the actual names in steps 7 and 8. If a metric view references a column that
-`DESCRIBE` didn't return, `CREATE VIEW` fails with "cannot resolve column".
+`DESCRIBE` didn't return, `CREATE VIEW` fails with "cannot resolve column". Build a
+`DESCRIBE` inventory for every table before applying comments — do not assume the semantic
+names in the Column reference exist as-is on the landed table.
 
 ## Step 7 — Apply Unity Catalog comments
 
 UC comments are what Genie and Catalog Explorer read, and they measurably improve Genie's SQL
-accuracy. Take the text from the Column reference below and run one statement at a time:
+accuracy. Take the text from the Column reference below and run one statement at a time,
+**only for columns that `DESCRIBE` confirmed exist**. Skip missing columns and report them —
+a single bad `ALTER COLUMN` should not abort the rest:
 
 ```sql
 COMMENT ON TABLE <catalog>.<schema>.coverage_benefit IS
@@ -196,6 +200,11 @@ utilization figures live at the `coverage_benefit_item_limit` grain. One view pe
 fan-out double counting. Requires **DBR 17.2+** for YAML `version: 1.1`; the `format:` blocks
 below need **17.3+** — drop them on older runtimes.
 
+**Join rule:** star joins (direct FK from `source`) may be siblings. Multi-hop joins must be
+**nested** under their parent — sibling joins that reference another join by name (e.g.
+`on: member_plan.plan_id = purchaser_plan.id` at the top level) are rejected. Nest like a
+snowflake schema.
+
 ### 8a. Cost-sharing metrics
 
 ```sql
@@ -210,9 +219,10 @@ AS $$
     - name: member_plan
       source: <catalog>.<schema>.member_plan
       on: source.member_plan_id = member_plan.id
-    - name: purchaser_plan
-      source: <catalog>.<schema>.purchaser_plan
-      on: member_plan.plan_id = purchaser_plan.id
+      joins:
+        - name: purchaser_plan
+          source: <catalog>.<schema>.purchaser_plan
+          on: member_plan.plan_id = purchaser_plan.id
   dimensions:
     - name: Coverage Type
       expr: source.coverage_type
@@ -294,15 +304,18 @@ AS $$
     - name: coverage_benefit_item
       source: <catalog>.<schema>.coverage_benefit_item
       on: source.coverage_benefit_item_id = coverage_benefit_item.id
-    - name: coverage_benefit
-      source: <catalog>.<schema>.coverage_benefit
-      on: coverage_benefit_item.coverage_benefit_id = coverage_benefit.id
-    - name: member_plan
-      source: <catalog>.<schema>.member_plan
-      on: coverage_benefit.member_plan_id = member_plan.id
-    - name: purchaser_plan
-      source: <catalog>.<schema>.purchaser_plan
-      on: member_plan.plan_id = purchaser_plan.id
+      joins:
+        - name: coverage_benefit
+          source: <catalog>.<schema>.coverage_benefit
+          on: coverage_benefit_item.coverage_benefit_id = coverage_benefit.id
+          joins:
+            - name: member_plan
+              source: <catalog>.<schema>.member_plan
+              on: coverage_benefit.member_plan_id = member_plan.id
+              joins:
+                - name: purchaser_plan
+                  source: <catalog>.<schema>.purchaser_plan
+                  on: member_plan.plan_id = purchaser_plan.id
   dimensions:
     - name: Coverage Type
       expr: coverage_benefit.coverage_type
@@ -375,6 +388,10 @@ openAsset({
   continueMessage: ""
 })
 ```
+
+If a rename / description / agent-configuration update fails with a transient network error
+(e.g. `Failed to update agent configuration`), retry that call. Do not rewind earlier steps —
+starter questions and example SQL can succeed even when the rename fails.
 
 **Instructions** on the space are for company-wide business context only — official definitions
 (what counts as an "active member" or "verified coverage"), plan-year conventions, source

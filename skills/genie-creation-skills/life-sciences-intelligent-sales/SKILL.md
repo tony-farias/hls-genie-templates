@@ -224,12 +224,16 @@ DESCRIBE TABLE <catalog>.<schema>.visit
 ```
 
 Use the actual names in steps 7 and 8. If a metric view references a column that
-`DESCRIBE` didn't return, `CREATE VIEW` fails with "cannot resolve column".
+`DESCRIBE` didn't return, `CREATE VIEW` fails with "cannot resolve column". Build a
+`DESCRIBE` inventory for every table before applying comments — do not assume the semantic
+names in the Column reference exist as-is on the landed table.
 
 ## Step 7 — Apply Unity Catalog comments
 
 UC comments are what Genie and Catalog Explorer read, and they measurably improve Genie's SQL
-accuracy. Take the text from the Column reference below and run one statement at a time:
+accuracy. Take the text from the Column reference below and run one statement at a time,
+**only for columns that `DESCRIBE` confirmed exist**. Skip missing columns and report them —
+a single bad `ALTER COLUMN` should not abort the rest:
 
 ```sql
 COMMENT ON TABLE <catalog>.<schema>.visit IS
@@ -246,6 +250,11 @@ Escape single quotes by doubling them (`''`). Verify with `DESCRIBE TABLE EXTEND
 Two views, not one: visit execution lives at the `visit` grain while availability lives at the
 `product_availability_projection` grain. One view per grain avoids fan-out double counting.
 Requires **DBR 17.2+** for YAML `version: 1.1`; drop `format:` blocks on older runtimes.
+
+**Join rule:** star joins (direct FK from `source`) may be siblings — both views below are
+star schemas and are fine as written. Multi-hop joins must be **nested** under their parent
+(snowflake); sibling joins that reference another join by name are rejected. If you later add
+a hop through `account` or `product2`, nest it.
 
 ### 8a. Visit execution metrics
 
@@ -395,6 +404,10 @@ openAsset({
   continueMessage: ""
 })
 ```
+
+If a rename / description / agent-configuration update fails with a transient network error
+(e.g. `Failed to update agent configuration`), retry that call. Do not rewind earlier steps —
+starter questions and example SQL can succeed even when the rename fails.
 
 **Instructions** on the space are for company-wide business context only — official definitions
 (what counts as a "completed visit" or "shortfall"), territory reporting conventions, source
