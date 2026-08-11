@@ -84,9 +84,7 @@ skills/
   genie-creation-skills/
     create-genie-space/               SKILL.md   # create a Genie space via API + wire it into the app
     health-cloud-benefits/            SKILL.md   # Health Cloud Benefits Verification: Lakeflow ingestion → metric views → Genie
-                                      schema-reference.md  # column-level definitions for the 10 ingested tables
     life-sciences-intelligent-sales/  SKILL.md   # Life Sciences Intelligent Sales: Lakeflow ingestion → metric views → Genie
-                                      schema-reference.md  # column-level definitions for the 17 ingested tables
   lakeflow-connect-skills/                       # Lakeflow Connect ingestion skills
     hedis-file-ingestion/             SKILL.md   # HEDIS files (Auto Loader) + Salesforce Data Cloud dims
 ```
