@@ -1,0 +1,4 @@
+interface:
+  display_name: "Deploy Monday Morning Scintilla"
+  short_description: "Discover Scintilla feeds and deploy the retail app"
+  default_prompt: "Use $deploy-monday-morning-scintilla to inventory this customer workspace and deploy the Monday Morning retail intelligence app."

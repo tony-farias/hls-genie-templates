@@ -71,16 +71,19 @@ generate_*.py  netsuite_gtn.js     # build-time model generators (NOT deployed) 
 deploy.sh                          # deploy to fe-hls
 demos/hedis-quality/               # runnable Lakeflow ingestion demo (NOT deployed) — see its README
 skills/                            # Claude Code skills for this project (NOT deployed)
+  app-skills/                      #   Databricks application build and deployment skills
   genie-creation-skills/           #   Genie space creation + domain grounding skills
   lakeflow-connect-skills/         #   (placeholder for Lakeflow Connect ingestion skills)
 ```
 
 ## Skills
-The `skills/` folder holds Claude Code skills for working on this project, grouped into
-two categories under the common `skills/` folder:
+The `skills/` folder holds agent skills for working on this project, grouped into
+three categories under the common `skills/` folder:
 
 ```
 skills/
+  app-skills/                                 # Databricks application build and deployment skills
+    deploy-monday-morning-scintilla/          # recreate and deploy the Monday Morning CPG app
   genie-creation-skills/
     create-genie-space/               SKILL.md   # create a Genie space via API + wire it into the app
     health-cloud-benefits/            SKILL.md   # Health Cloud Benefits Verification: Lakeflow ingestion → metric views → Genie
@@ -91,6 +94,9 @@ skills/
 
 ### Which category does a skill belong in?
 
+- **`app-skills/`** — anything about **building and deploying Databricks Apps**, including
+  application architecture, required data discovery, configuration, and customer-environment
+  deployment workflows.
 - **`genie-creation-skills/`** — anything about **building or grounding Databricks AI/BI
   Genie spaces**: creating/configuring a space, wiring it into a tab's "Ask Genie" button,
   and the *domain knowledge that makes Genie answer well* — data-model schema definitions,
